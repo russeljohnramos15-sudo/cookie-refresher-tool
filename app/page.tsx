@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 
 export default function RefreshCookie() {
   const [userInfo, setUserInfo] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Particle animation effect
@@ -73,10 +75,27 @@ export default function RefreshCookie() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleRefresh = () => {
-    if (userInfo.trim()) {
-      console.log('Refreshing with:', userInfo);
-      // Add your refresh logic here
+  const handleRefresh = async () => {
+    if (!userInfo.trim()) {
+      setMessage('Please enter your user information first.');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage('');
+
+    try {
+      // Simulate refresh process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setMessage('✓ Cookie refreshed successfully!');
+      setUserInfo('');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      setMessage('✗ Error refreshing cookie. Please try again.');
+      setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -128,10 +147,22 @@ export default function RefreshCookie() {
           {/* Refresh Button */}
           <button
             onClick={handleRefresh}
-            className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+            disabled={isLoading}
+            className="w-full bg-red-500 hover:bg-red-600 disabled:bg-red-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 disabled:cursor-not-allowed"
           >
-            Refresh
+            {isLoading ? 'Refreshing...' : 'Refresh'}
           </button>
+
+          {/* Status Message */}
+          {message && (
+            <div className={`text-center py-3 px-4 rounded-lg font-semibold ${
+              message.includes('✓')
+                ? 'bg-green-500/20 text-green-400'
+                : 'bg-red-500/20 text-red-400'
+            }`}>
+              {message}
+            </div>
+          )}
         </div>
       </div>
     </div>
